@@ -4,6 +4,7 @@ takel = lambda r: r.readline().strip('\n')
 
 with open('secret.txt') as secret:
     project_name = takel(secret)
+    secret_word = takel(secret)
     bot = telebot.TeleBot(takel(secret))
     proxy_address = takel(secret)
     if proxy_address:
@@ -12,31 +13,93 @@ with open('secret.txt') as secret:
 import user
 user.load_db(project_name)
 
-#import task
+import task
+task.load_db(project_name)
 
-tasklist = list()
+import markup
 
 @bot.message_handler(commands=['start'])
 def identify_message(msg):
-    u = msg.from_user
-    if user.check(u):
+    u = user.new(msg.from_user)
+    if user.is_authorized(u):
         bot.send_message(msg.chat.id, 'Привет, {0}!'.format(user.name(u)))
         user.update(u)
     else:
-        bot.send_message(msg.chat.id, 'Привет! Не узнаю тебя :( Напомни плиз секретное слово)')
+        bot.send_message(msg.chat.id, 'Привет! Не узнаю тебя :( Напомни секретное слово')
         bot.register_next_step_handler(msg, check_password)
 
 def check_password(msg):
-    if msg.text.lower() == 'кусь':
+    if msg.text.lower() == secret_word:
         bot.send_message(msg.chat.id, 'Добро пожаловать {0}!'.format(
             user.name(msg.from_user)))
-        user.register(msg.from_user)
+        user.authorize(msg.from_user)
         remind_instructions(msg)
     else:
         bot.send_message(msg.chat.id, 'Увы, не в этот раз.')
 
+@bot.message_handler(func=lambda m: not user.is_authorized(m.from_user))
+def not_authorized_message(msg):
+    bot.send_message(msg.chat.id, 'Вы не авторизованы')
+
 @bot.message_handler(commands=['help'])
 def remind_instructions(msg):
-    bot.send_message(msg.chat.id, 'Используй комманду /add чтобы добавить задачу, /status чтобы изменить статус выполнения задачи, /edit чтобы изменить саму задачу, /show чтобы вывести задачи в которых ты упомянут, /show_all чтобы вывести все задачи.')
+    bot.send_message(msg.chat.id, '''Список комманд:
+/new : добавить задачу
+/append : добавить комментарии к уже созданой задачу
+/status :  изменить статус выполнения задачи
+/show : вывести задачи в которых ты упомянут
+/show_all : вывести все задачи {0}'''.format(project_name))
+
+@bot.message_handler(commands=['new'])
+def new_task_header(msg):
+    print(msg.text)
+    us = user.state(msg.from_user)
+    us.new_task(task.Task())
+    bot.send_message(msg.chat.id, 'Введи заголовок задачи')
+    bot.register_next_step_handler(msg, new_task_description)
+
+def new_task_description(msg):
+    t = task.new(msg.text, msg.from_user)
+    bot.send_message(msg.chat.id, 'Добавь описание')
+    bot.register_next_step_handler(msg, lambda m: new_task_priority_deadline(m, t))
+
+def new_task_priority_deadline(msg):
+    t.descripiton = msg.text
+    bot.send_message(msg.chat.id, 'Опиши приоритет и сроки выполнения задачи. Можно указать "срочно", "важно", "желательно", "не важно", а также любую дату и время, например "четверг 17:30" или "20.11.2019"')
+    bot.register_next_step_handler(msg, 
+
+def new_task_participants(msg, t):
+    for p in t.potentional_participants:
+        bot.send_message('Новая задача для тебя, {0}!'.format(p.author),
+                         chat_id=p.author.id)
+        bot.send_message(t.to_message())
+        bot.send_message()
+
+@bot.message_handler(commands=['show'])
+def show_user_tasks(msg):
+    any_tasks = False
+    for t in task.show_user(msg.from_user):
+        any_tasks = True
+        bot.send_message(msg.chat.id, t.to_message())
+    if not any_tasks:
+        bot.send_message(msg.chat.id, 'У тебя нет заданий :(')
+
+@bot.message_handler(commands=['show_all'])
+def show_all_tasks(msg):
+    for t in task.show_all():
+        bot.send_message(msg.chat.id, t.to_message())
+
+@bot.message_handler(commands=['status'])
+def change_status(msg):
+    bot.send_message(msg.chat.id, 'Введи номер задачи или часть заголовка')
+
+@bot.message_handler(commands=['subscribe_tag'])
+def subscribe(msg):
+    bot.send_message(msg.chat.id, 'Напиши хештег на который ты хочешь подписаться')
+
+@bot.message_handler(commands=['unsubscribe_tag'])
+def unsubscribe(msg):
+    bot.send_message
+    
 
 bot.polling()
