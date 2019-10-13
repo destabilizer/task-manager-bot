@@ -6,37 +6,34 @@ import markup
 bot = telebot.TeleBot(config.token)
 telebot.apihelper.proxy = {'https': config.proxy}
 
-from user import User
-#from task import Task
-
-#import task
-#task.load_db(project_name)
+import user
+import task
 
 @bot.message_handler(commands=['start'])
-def identify_message(msg):
-    u = User(tguser=msg.from_user)
+@user.wrap
+def identify_message(u, m):
     if u.authorized:
-        bot.send_message(msg.chat.id, 'Привет, {0}!'.format(u.name))
+        bot.send_message(m.chat.id, 'Привет, {0}!'.format(u.name))
     else:
-        bot.send_message(msg.chat.id, 'Привет! Не узнаю тебя :( Напомни секретное слово')
-        bot.register_next_step_handler(msg, check_password)
+        bot.send_message(m.chat.id, 'Привет! Не узнаю тебя :( Напомни секретное слово')
+        bot.register_next_step_handler(m, check_password)
 
-def check_password(msg):
-    u = User(msg.from_user)
-    if msg.text.lower() == config.secret:
-        bot.send_message(msg.chat.id, 'Добро пожаловать {0}!'.format(u.name))
+@user.wrap
+def check_password(u, m):
+    if m.text.lower() == config.secret:
+        bot.send_message(m.chat.id, 'Добро пожаловать {0}!'.format(u.name))
         u.register()
-        remind_instructions(msg)
+        remind_instructions(m)
     else:
-        bot.send_message(msg.chat.id, 'Неверное секретное слово.')
+        bot.send_message(m.chat.id, 'Неверное секретное слово.')
 
-#@bot.message_handler(func=lambda m: not User(m.from_user).authorized)
-#def not_authorized_message(msg):
-#    bot.send_message(msg.chat.id, 'Вы не авторизованы')
+@bot.message_handler(func=lambda m: not user.User(m.from_user).authorized)
+def not_authorized_message(m):
+    bot.send_message(m.chat.id, 'Вы не авторизованы')
 
 @bot.message_handler(commands=['help'])
-def remind_instructions(msg):
-    bot.send_message(msg.chat.id, '''Список комманд:
+def remind_instructions(m):
+    bot.send_message(m.chat.id, '''Список комманд:
 /new : добавить задачу
 /append : добавить комментарии к уже созданной задаче
 /status :  изменить статус выполнения задачи
@@ -44,10 +41,9 @@ def remind_instructions(msg):
 /show_all : вывести все задачи {0}'''.format(config.name))
 
 @bot.message_handler(commands=['new'])
-def new_task_header(msg):
-    print(msg.text)
-    us = user.state(msg.from_user)
-    us.new_task(task.Task())
+@user.wrap
+def new_task_header(u, m):
+    u.state.new_task(task.Task())
     bot.send_message(msg.chat.id, 'Введи заголовок задачи')
     bot.register_next_step_handler(msg, new_task_description)
 

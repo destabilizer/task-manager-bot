@@ -2,6 +2,9 @@ import userlist
 
 users = list()
 
+def wrap(func):
+    return lambda msg: func(User(msg.from_user), msg)
+
 class User:
     def __new__(cls, tguser=None):
         # if already exists
@@ -67,17 +70,19 @@ class User:
     def __repr__(self):
         return ' '.join(self.r())
 
+via_mention = User.via_mention
+
 class UserState():
     def __init__(self):
-        self.doing_task = False
+        self.creating_task = False
         self.cur_task = None
     
     def new_task(self, t):
-        self.doing_task = True
+        self.creating_task = True
         self.current_task = t
     
     def finish_task(self):
-        self.doing_task = False
+        self.creating_task = False
 
 
 for r in userlist.u:
