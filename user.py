@@ -2,6 +2,8 @@ import userlist
 
 users = list()
 
+from task import Task
+
 def wrap(func):
     return lambda msg: func(User(msg.from_user), msg)
 
@@ -26,6 +28,7 @@ class User:
         self.authorized = False
         self.isadmin = False
         self.state = UserState()
+        self.created_tasks = list()
         if tguser: self._update_tguser(tguser)
     
     @classmethod
@@ -69,6 +72,19 @@ class User:
     
     def __repr__(self):
         return ' '.join(self.r())
+    
+    def create_task(self, m):
+        t = Task(user=self, tc=m.)
+        self.state.new_task(t)
+        self.created_tasks.append(t)
+        return t
+    
+    def current_task(self):
+        return self.state.cur_task
+    
+    def finish_creating_task(self):
+        self.state.finish_task()
+        
 
 via_mention = User.via_mention
 

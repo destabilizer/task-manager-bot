@@ -33,7 +33,7 @@ def not_authorized_message(m):
 
 @bot.message_handler(commands=['help'])
 def remind_instructions(m):
-    bot.send_message(m.chat.id, '''Список комманд:
+    bot.send_message(m.chat.id, '''Список комманд
 /new : добавить задачу
 /append : добавить комментарии к уже созданной задаче
 /status :  изменить статус выполнения задачи
@@ -42,22 +42,24 @@ def remind_instructions(m):
 
 @bot.message_handler(commands=['new'])
 @user.wrap
-def new_task_header(u, m):
-    u.state.new_task(task.Task())
-    bot.send_message(msg.chat.id, 'Введи заголовок задачи')
-    bot.register_next_step_handler(msg, new_task_description)
+def new_task(u, m):
+    u.create_task(m)
+    bot.send_message(msg.chat.id, 'Опиши коротко задачу (более пoодробное описание ты сможешь добавить позже)')
+    bot.register_next_step_handler(m, new_task_description)
 
-def new_task_description(msg):
-    t = task.new(msg.text, msg.from_user)
-    bot.send_message(msg.chat.id, 'Добавь описание')
-    bot.register_next_step_handler(msg, lambda m: new_task_priority_deadline(m, t))
+@user.wrap
+def new_task_description(u, m):
+    u.current_task().add_description(m.text)
+    bot.send_message(m.chat.id, 'Опиши приоритет и сроки выполнения задачи. Можно указать "срочно", "важно", "желательно", "не важно", а также любую дату и время, например "четверг 17:30" или "20.11.2019"')
+    bot.register_next_step_handler(m, new_task_deadline)
 
-def new_task_priority_deadline(msg):
-    t.descripiton = msg.text
-    bot.send_message(msg.chat.id, 'Опиши приоритет и сроки выполнения задачи. Можно указать "срочно", "важно", "желательно", "не важно", а также любую дату и время, например "четверг 17:30" или "20.11.2019"')
-    #bot.register_next_step_handler(msg, 
+@user.wrap
+def new_task_deadline(u, m):
+    u.current_task().set_deadline(m.text)
+    bot.send_message(m.chat.id, 'Сейчас узнаем, возьмет ли кто-то эту задачу)')
 
-def new_task_participants(msg, t):
+@user.wrap
+def new_task_participants(u, m):
     for p in t.potentional_participants:
         bot.send_message('Новая задача для тебя, {0}!'.format(p.author),
                          chat_id=p.author.id)
