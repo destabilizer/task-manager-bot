@@ -1,54 +1,47 @@
 import telebot
 
-takel = lambda r: r.readline().strip('\n')
-
-with open('secret.txt') as secret:
-    project_name = takel(secret)
-    secret_word = takel(secret)
-    bot = telebot.TeleBot(takel(secret))
-    proxy_address = takel(secret)
-    if proxy_address:
-        telebot.apihelper.proxy = {'https': proxy_address}
-
-import user
-user.load_db(project_name)
-
-import task
-task.load_db(project_name)
-
+import config
 import markup
+
+bot = telebot.TeleBot(config.token)
+telebot.apihelper.proxy = {'https': config.proxy}
+
+from user import User
+#from task import Task
+
+#import task
+#task.load_db(project_name)
 
 @bot.message_handler(commands=['start'])
 def identify_message(msg):
-    u = user.new(msg.from_user)
-    if user.is_authorized(u):
-        bot.send_message(msg.chat.id, 'Привет, {0}!'.format(user.name(u)))
-        user.update(u)
+    u = User(tguser=msg.from_user)
+    if u.authorized:
+        bot.send_message(msg.chat.id, 'Привет, {0}!'.format(u.name))
     else:
         bot.send_message(msg.chat.id, 'Привет! Не узнаю тебя :( Напомни секретное слово')
         bot.register_next_step_handler(msg, check_password)
 
 def check_password(msg):
-    if msg.text.lower() == secret_word:
-        bot.send_message(msg.chat.id, 'Добро пожаловать {0}!'.format(
-            user.name(msg.from_user)))
-        user.authorize(msg.from_user)
+    u = User(msg.from_user)
+    if msg.text.lower() == config.secret:
+        bot.send_message(msg.chat.id, 'Добро пожаловать {0}!'.format(u.name))
+        u.register()
         remind_instructions(msg)
     else:
-        bot.send_message(msg.chat.id, 'Увы, не в этот раз.')
+        bot.send_message(msg.chat.id, 'Неверное секретное слово.')
 
-@bot.message_handler(func=lambda m: not user.is_authorized(m.from_user))
-def not_authorized_message(msg):
-    bot.send_message(msg.chat.id, 'Вы не авторизованы')
+#@bot.message_handler(func=lambda m: not User(m.from_user).authorized)
+#def not_authorized_message(msg):
+#    bot.send_message(msg.chat.id, 'Вы не авторизованы')
 
 @bot.message_handler(commands=['help'])
 def remind_instructions(msg):
     bot.send_message(msg.chat.id, '''Список комманд:
 /new : добавить задачу
-/append : добавить комментарии к уже созданой задачу
+/append : добавить комментарии к уже созданной задаче
 /status :  изменить статус выполнения задачи
 /show : вывести задачи в которых ты упомянут
-/show_all : вывести все задачи {0}'''.format(project_name))
+/show_all : вывести все задачи {0}'''.format(config.name))
 
 @bot.message_handler(commands=['new'])
 def new_task_header(msg):
@@ -66,7 +59,7 @@ def new_task_description(msg):
 def new_task_priority_deadline(msg):
     t.descripiton = msg.text
     bot.send_message(msg.chat.id, 'Опиши приоритет и сроки выполнения задачи. Можно указать "срочно", "важно", "желательно", "не важно", а также любую дату и время, например "четверг 17:30" или "20.11.2019"')
-    bot.register_next_step_handler(msg, 
+    #bot.register_next_step_handler(msg, 
 
 def new_task_participants(msg, t):
     for p in t.potentional_participants:
